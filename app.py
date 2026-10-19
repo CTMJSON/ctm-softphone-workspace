@@ -48,6 +48,22 @@ def _asset_version(filename):
 app.jinja_env.globals["asset_v"] = _asset_version("style.css")
 
 
+@app.before_request
+def force_apex_host():
+    """Canonicalize www.<host> down to <host>.
+
+    The CTM OAuth app registers the apex redirect URI, and the OAuth `state`
+    lives in a host-scoped session cookie, so a flow started on www would fail
+    at the apex callback. Sending www to the apex keeps one origin.
+    """
+    host = request.host.split(":", 1)[0].lower()
+    if host.startswith("www."):
+        target = "https://" + host[4:] + request.path
+        if request.query_string:
+            target += "?" + request.query_string.decode()
+        return redirect(target, code=301)
+
+
 @app.after_request
 def allow_embedded_webgl(response):
     """Let game iframes use WebGL. A parent Permissions-Policy otherwise
