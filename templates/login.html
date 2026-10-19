@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CTM Workspace — an example app with the softphone embedded</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
+</head>
+<body class="login-body">
+  <main class="login-page">
+    <div class="login-shell">
+      <section class="login-hero">
+        <span class="login-hero-orb login-hero-orb-a"></span>
+        <span class="login-hero-orb login-hero-orb-b"></span>
+
+        <div>
+          <div class="login-hero-brand">
+            <span class="logo-mark">&#9742;</span>
+            <span>CTM Workspace</span>
+          </div>
+
+          <p class="login-kicker">Example custom app &middot; CTM softphone embedded</p>
+          <h1>Your phone system, anywhere your software lives.</h1>
+          <p class="login-hero-copy">
+            Call software usually asks your team to leave the tools they work in.
+            This is the other pattern: the CTM softphone lives inside the app
+            &mdash; the CRM record, the patient chart, the operations dashboard
+            &mdash; so talking to a customer happens right next to everything
+            you already know about them. Calls, texts, form submissions, and
+            agent presence render inside your own UI, on your own terms.
+          </p>
+
+          <div class="login-feature-grid">
+            <div class="login-feature-card">
+              <span class="login-feature-label">Built to sit inside your app</span>
+              <strong>
+                Drop the CTM phone beside any record. A few lines of markup and
+                two token endpoints on your server &mdash; CTM handles the rest.
+              </strong>
+            </div>
+            <div class="login-feature-card">
+              <span class="login-feature-label">What shows up</span>
+              <strong>
+                Live softphone, call &amp; text history, form submissions, agent
+                availability, and activity feeds &mdash; all in one workspace.
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <p class="login-inline-note">
+          Authorization is OAuth &mdash; the client secret stays on your server,
+          never in the browser.
+        </p>
+      </section>
+
+      <section class="login-card">
+        <div class="login-logo">
+          <span class="logo-mark">&#9742;</span>
+          <h1>{{ app_title or "CTM Workspace" }}</h1>
+        </div>
+
+        <p class="login-card-copy">
+          This page is a working example. Connect a CTM account to open the live
+          workspace and use the embedded softphone, activity logs, and presence
+          for yourself.
+        </p>
+
+        {% if error %}
+        <p class="login-inline-note" style="color:#f5b3b3; margin-top:0;">{{ error }}</p>
+        {% endif %}
+
+        <div class="login-steps-head">
+          <h2>How to connect</h2>
+          <p>Three steps, about a minute.</p>
+        </div>
+
+        <ol class="login-checklist">
+          <li class="login-check-item">
+            <span class="login-step-num">1</span>
+            <span>Click <strong>Connect with CTM</strong> and sign in to your CTM account. If you're not already signed in to CTM, sign in there first, then come back and click the button.</span>
+          </li>
+          <li class="login-check-item">
+            <span class="login-step-num">2</span>
+            <span>Approve access on CTM's authorize screen.</span>
+          </li>
+          <li class="login-check-item">
+            <span class="login-step-num">3</span>
+            <span>You land straight in the live workspace &mdash; no keys to copy.</span>
+          </li>
+        </ol>
+
+        <div class="login-form">
+          <a class="btn btn-primary btn-full login-submit" href="{{ url_for('oauth_login') }}">
+            Connect with CTM
+          </a>
+        </div>
+
+        <div class="login-section login-section-compact">
+          <div class="login-section-head">
+            <h2>What you need</h2>
+            <p>Just your CTM login. Authorize this app and you're in.</p>
+          </div>
+          <div class="login-section-head" style="margin-bottom:0;">
+            <h2>Works with any stack</h2>
+            <p>Any web app that can serve a couple of token endpoints can embed the CTM softphone.</p>
+          </div>
+        </div>
+
+        <p class="login-inline-note" style="margin-top:18px;">
+          Building this into your own product?
+          <a href="https://www.ctm.com/solutions/partner-ecosystem/" target="_blank" rel="noopener">Explore the CTM Partner Ecosystem</a>
+          &middot;
+          <a href="https://github.com/CTMJSON/ctm-softphone-workspace" target="_blank" rel="noopener">View the source on GitHub</a>.
+        </p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

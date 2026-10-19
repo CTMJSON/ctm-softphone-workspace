@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CTM Workspace</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
+  <script src="https://app.calltrackingmetrics.com/ctm-phone-embed-1.0.js"></script>
+  {% if chat_token %}
+  <script src="https://chat.actm.xyz/chat.js" async></script>
+  {% endif %}
+</head>
+<body class="desk-page">
+
+  <!-- ── Left: Phone panel ── -->
+  <div class="phone-panel">
+    <div class="phone-status-row">
+      <span id="agent-status" class="status-dot status-dot-unknown" role="img" aria-label="Connecting…"></span>
+      <span class="agent-name">{{ user_name }}</span>
+      <span id="agent-status-text" class="agent-status-text">Connecting…</span>
+    </div>
+
+    <!--
+      auto   = fetch access token immediately on load (skips "Launch Phone" button)
+      No popout attribute = render inline
+    -->
+    <div class="phone-embed-wrapper">
+      <div id="phone-error" class="phone-error" hidden></div>
+      <ctm-phone-embed
+        id="my-phone"
+        access="/ctm-phone-access"
+        refresh="/ctm-phone-refresh"
+        auto="true">
+      </ctm-phone-embed>
+    </div>
+
+    <!-- ── Phone number lookup (IPQualityScore) ── -->
+    <div class="lookup-widget" data-lookup-widget>
+      <div class="lookup-head">
+        <span class="lookup-title">Number Lookup</span>
+        <span class="lookup-sub">IPQS</span>
+      </div>
+      <form class="lookup-form" data-lookup-form>
+        <input type="tel" class="lookup-input" data-lookup-input placeholder="+1 555 555 5555" autocomplete="off">
+        <button type="submit" class="lookup-btn" data-lookup-btn>Look up</button>
+      </form>
+      <div class="lookup-result" data-lookup-result hidden></div>
+    </div>
+
+  </div>
+
+  <!-- ── Right: Activity log ── -->
+  <div class="activity-col">
+    <div class="activity-header">
+      <div class="activity-header-main">
+        <div class="activity-header-primary">
+          <div id="workspace-weather" class="weather-hero weather-hero-loading">
+            <div class="weather-hero-topline">
+              <span class="weather-hero-kicker">Local Conditions</span>
+              <span class="weather-hero-source">Locating…</span>
+            </div>
+            <div class="weather-hero-main">
+              <strong class="weather-hero-temp">--°</strong>
+              <div class="weather-hero-copy">
+                <div class="weather-hero-condition">Loading local forecast</div>
+                <div class="weather-hero-location">Checking this network location</div>
+              </div>
+            </div>
+            <div class="weather-hero-meta">
+              <span class="weather-meta-pill">H --°</span>
+              <span class="weather-meta-pill">L --°</span>
+              <span class="weather-meta-pill">Wind -- mph</span>
+            </div>
+          </div>
+        </div>
+        <div class="activity-header-tertiary">
+          <div id="ops-panel-content" class="ops-panel-content">
+            <p>Loading agent availability…</p>
+          </div>
+        </div>
+        <div class="activity-header-secondary">
+          <div id="workspace-ops-feed" class="ops-feed-hero">
+            <p>Loading ops feed…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="workspace-sports-ticker" class="sports-ticker-strip-host">
+      <div class="sports-ticker-loading">Loading scores…</div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab active" data-src="/ctm/calls">&#128222; Call Log</button>
+      <button class="tab" data-src="/ctm/messages">&#128172; Text Log</button>
+      <button class="tab" data-src="/ctm/forms">&#128203; Forms</button>
+      <button class="tab tab-embed" data-embed="doom" data-src="https://ustymukhman.github.io/WebDOOM/public/">&#128126; Doom</button>
+      <button class="tab tab-embed" data-embed="retro" data-src="/static/retro.html">&#127918; Retro</button>
+      <button class="tab tab-embed" data-embed="pacman" data-src="https://pacman.platzh1rsch.ch/">&#128123; Pac-Man</button>
+      
+      <button class="tab tab-embed" data-embed="breakout" data-src="https://end3r.github.io/Gamedev-Canvas-workshop/lesson10.html">&#127955; Breakout</button>
+      <button class="tab tab-embed" data-embed="nzp" data-src="https://nzp.gay/">&#129503; NZ:P</button>
+    </div>
+    <div id="data-content" class="data-content">
+      <p>Loading…</p>
+    </div>
+  </div>
+
+  {% if chat_token %}
+  <ctm-chat id="ctm-chat" token="{{ chat_token }}"></ctm-chat>
+  {% endif %}
+
+  <script>
+    const phone = document.getElementById('my-phone');
+    const badge = document.getElementById('agent-status');
+    const badgeText = document.getElementById('agent-status-text');
+
+    // ── Status indicator ──────────────────────────────────────────
+    // One compact control: a status dot beside the agent name. The dot carries
+    // the softphone state so it no longer competes with a separate status pill.
+    function setStatus(text, cls) {
+      if (badgeText) badgeText.textContent = text;
+      if (badge) {
+        badge.className = 'status-dot ' + cls.replace('status-', 'status-dot-');
+        badge.setAttribute('aria-label', text);
+        badge.title = text;
+      }
+    }
+
+    const phoneError = document.getElementById('phone-error');
+    function showPhoneError(message) {
+      if (!phoneError) return;
+      phoneError.hidden = false;
+      phoneError.innerHTML = message +
+        ' <a href="/logout">Reconfigure demo</a>';
+    }
+    function clearPhoneError() {
+      if (phoneError) phoneError.hidden = true;
+    }
+
+    // Check that the session is ready to hand out a phone token WITHOUT firing a
+    // second phone_access request (which competes with the embed's own call and
+    // can cause timeouts). This only reports blocked/unauthenticated sessions.
+    async function checkPhoneReadiness() {
+      try {
+        const response = await fetch('/ctm-phone-status');
+        if (!response.ok) return true;
+        const payload = await response.json().catch(() => ({}));
+        if (payload && payload.ok === false && payload.message) {
+          setStatus('Phone unavailable', 'status-error');
+          showPhoneError('Unable to launch the softphone: ' + payload.message);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        return true; // network hiccup here is not fatal; let the embed try.
+      }
+    }
+
+    function loadNumberIntoPhone(phoneNumber) {
+      if (!phoneNumber || !phone) return;
+      try {
+        phone.dialTo = phoneNumber;
+        setStatus(`Dialer Loaded`, 'status-active');
+        badge.title = phoneNumber;
+        phone.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      } catch (error) {
+        console.error('Unable to populate embedded phone dialer', error);
+      }
+    }
+    window.populateEmbeddedPhone = loadNumberIntoPhone;
+
+    // NOTE: The embedded phone renders inside CTM's own cross-origin iframe
+    // (app.calltrackingmetrics.com/phoneapp/embed). Its theme is NOT controllable
+    // from this page: the <ctm-phone-embed> element has no theme attribute and the
+    // embed never forwards theme state to the iframe. It follows CTM's own
+    // appearance settings for the session.
+    async function bootstrapEmbeddedPhone() {
+      if (!phone) return;
+      const ready = await checkPhoneReadiness();
+      if (!ready) return;
+      clearPhoneError();
+      try {
+        phone.auto = true;
+        if (typeof phone.getUserAccess === 'function') {
+          await phone.getUserAccess();
+        }
+      } catch (error) {
+        console.error('Unable to bootstrap embedded phone', error);
+      }
+    }
+
+    // ── MutationObserver fallback for "Launch Phone" button ───────
+    // The `auto` attribute should skip this, but if CTM still renders
+    // the button, click it as soon as it appears in the shadow DOM.
+    function watchForLaunchBtn() {
+      const root = phone.shadowRoot;
+      if (!root) { setTimeout(watchForLaunchBtn, 100); return; }
+
+      function tryClick() {
+        const btn = root.querySelector(
+          '.launch-open-btn, button[class*="launch"], [data-action*="launch"]'
+        );
+        if (btn) { btn.click(); observer.disconnect(); }
+      }
+
+      const observer = new MutationObserver(tryClick);
+      observer.observe(root, { childList: true, subtree: true });
+      tryClick(); // also try immediately if already rendered
+    }
+    watchForLaunchBtn();
+    bootstrapEmbeddedPhone();
+
+    // ── Phone events ──────────────────────────────────────────────
+    phone.addEventListener('ctm:ready',         () => setStatus('Ready', 'status-ready'));
+    phone.addEventListener('ctm:connecting',    () => setStatus('Connecting…',   'status-connecting'));
+    phone.addEventListener('ctm:requiresToken', () => bootstrapEmbeddedPhone());
+    phone.addEventListener('ctm:incomingCall',  () => { setStatus('Incoming Call','status-incoming'); refreshLog(); });
+    phone.addEventListener('ctm:start',         () => { setStatus('On Call',      'status-oncall');   refreshLog(); });
+    phone.addEventListener('ctm:end-activity',  () => { setStatus('Ready',        'status-ready');    setTimeout(refreshLog, 2000); });
+    phone.addEventListener('ctm:wrapup_start',  () => setStatus('Wrap-up',        'status-wrapup'));
+    phone.addEventListener('ctm:wrapup_end',    () => { setStatus('Ready',        'status-ready');    setTimeout(refreshLog, 1500); });
+    phone.addEventListener('ctm:failed',        () => setStatus('Call Failed',    'status-error'));
+    phone.addEventListener('ctm:access_denied', () => setStatus('Access Denied',  'status-error'));
+    phone.addEventListener('ctm:status',        e  => { if (e.detail?.status) setStatus(e.detail.status, 'status-active'); });
+    phone.addEventListener('ctm:task_completed',() => setTimeout(refreshLog, 1500));
+
+    // ── Activity log ──────────────────────────────────────────────
+    let activeTabSrc = '/ctm/calls';
+    let activeTabEmbed = null;
+
+    async function loadData(src, showSpinner = true) {
+      activeTabSrc = src;
+      const content = document.getElementById('data-content');
+
+      // External full-app embeds (Doom, Retro, Pac-Man, Breakout)
+      // render in an iframe that fills the whole data area.
+      if (activeTabEmbed) {
+        content.classList.add('is-embed');
+        content.innerHTML =
+          '<div class="embed-hint">Click inside the game to start. For mouse-look titles press <kbd>Esc</kbd> to release the cursor.</div>' +
+          '<iframe class="embed-frame" data-embed="' + activeTabEmbed + '" src="' + src + '" title="' + activeTabEmbed + '" ' +
+          'allow="fullscreen; gamepad; autoplay; clipboard-write; pointer-lock; accelerometer; gyroscope; web-share" allowfullscreen></iframe>';
+        return;
+      }
+
+      content.classList.remove('is-embed');
+      if (showSpinner) content.innerHTML = '<p>Loading…</p>';
+      try {
+        const response = await fetch(src);
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        const html = await response.text();
+        content.innerHTML = html;
+        hydrateDataPanel();
+      } catch {
+        content.innerHTML = '<p>Error loading data.</p>';
+      }
+    }
+
+    // Skip refresh when a full-app embed is displayed.
+    function refreshLog() { if (activeTabSrc && !activeTabEmbed) loadData(activeTabSrc, false); }
+
+    // Poll every 30 s to stay fresh without call events
+    setInterval(refreshLog, 30_000);
+
+    loadData('/ctm/calls');
+
+    async function loadOpsPanel(showSpinner = false) {
+      const container = document.getElementById('ops-panel-content');
+      if (showSpinner) container.innerHTML = '<p>Loading agent availability…</p>';
+      try {
+        const response = await fetch('/ctm/ops-panel');
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        container.innerHTML = await response.text();
+      } catch {
+        container.innerHTML = '<p>Unable to load agent availability.</p>';
+      }
+    }
+    window.refreshOpsPanel = () => loadOpsPanel(false);
+    loadOpsPanel(true);
+    setInterval(() => loadOpsPanel(false), 60_000);
+
+    async function loadWorkspaceOpsFeed() {
+      const container = document.getElementById('workspace-ops-feed');
+      if (!container) return;
+      try {
+        const response = await fetch('/ctm/ops-feed');
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        container.innerHTML = await response.text();
+        initNewsFilter(container);
+      } catch {
+        container.innerHTML = '<p>Unable to load news feed.</p>';
+      }
+    }
+
+    function initNewsFilter(scope) {
+      const root = (scope || document).querySelector('[data-news-feed-root]');
+      if (!root) return;
+      const buttons = root.querySelectorAll('.news-filter');
+      const items = root.querySelectorAll('.ops-feed-item');
+      buttons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const category = button.getAttribute('data-category');
+          buttons.forEach((b) => b.classList.toggle('is-active', b === button));
+          items.forEach((item) => {
+            const matches = category === 'all' || item.getAttribute('data-category') === category;
+            item.style.display = matches ? '' : 'none';
+          });
+        });
+      });
+    }
+
+    // Remembers the last chosen source so refreshes keep the toggle state.
+    let tickerSource = 'sports';
+
+    async function loadTicker(source) {
+      if (source) tickerSource = source;
+      const container = document.getElementById('workspace-sports-ticker');
+      if (!container) return;
+      const url = tickerSource === 'markets' ? '/ctm/markets-ticker' : '/ctm/sports-ticker';
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        container.innerHTML = await response.text();
+        initTicker(container);
+      } catch {
+        container.innerHTML = '<div class="sports-ticker-loading">Ticker is unavailable right now.</div>';
+      }
+    }
+
+    // Kept for compatibility with the periodic refresh below.
+    function loadSportsTicker() { return loadTicker(); }
+
+    // Wire up the ticker after its markup is injected (scripts in injected
+    // HTML don't execute, so the behavior lives here).
+    function initTicker(scope) {
+      const ticker = scope.querySelector('[data-sports-ticker], [data-markets-ticker]');
+      if (!ticker) return;
+      const track = ticker.querySelector('[data-sports-track]');
+
+      // Source toggle: Sports <-> Markets.
+      const sourceButtons = ticker.querySelectorAll('.ticker-source');
+      sourceButtons.forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          const next = btn.getAttribute('data-source');
+          if (next && next !== tickerSource) loadTicker(next);
+        });
+      });
+
+      // League filter (sports only) — compact dropdown.
+      const leagueSelect = ticker.querySelector('[data-league-select]');
+      if (leagueSelect) {
+        leagueSelect.addEventListener('change', () => {
+          const league = leagueSelect.value;
+          track.querySelectorAll('.sports-game').forEach((game) => {
+            const match = league === 'all' || game.getAttribute('data-league') === league;
+            game.style.display = match ? '' : 'none';
+          });
+        });
+      }
+
+      // Mark cloned so a future pass knows the track is already duplicated.
+      track.setAttribute('data-cloned', '1');
+
+      const wrap = ticker.querySelector('.sports-ticker-track-wrap');
+      if (wrap) {
+        wrap.addEventListener('mouseenter', () => { track.style.animationPlayState = 'paused'; });
+        wrap.addEventListener('mouseleave', () => { track.style.animationPlayState = 'running'; });
+        wrap.addEventListener('focusin',    () => { track.style.animationPlayState = 'paused'; });
+        wrap.addEventListener('focusout',   () => { track.style.animationPlayState = 'running'; });
+      }
+    }
+
+    loadWorkspaceOpsFeed();
+    setInterval(loadWorkspaceOpsFeed, 5 * 60_000);
+    loadTicker();
+    setInterval(loadTicker, 5 * 60_000);
+
+    // ── Phone number lookup (IPQS) ────────────────────────────────
+    (function initPhoneLookup() {
+      const widget = document.querySelector('[data-lookup-widget]');
+      if (!widget) return;
+      const form = widget.querySelector('[data-lookup-form]');
+      const input = widget.querySelector('[data-lookup-input]');
+      const button = widget.querySelector('[data-lookup-btn]');
+      const panel = widget.querySelector('[data-lookup-result]');
+
+      const FLAGS = [
+        ['voip', 'VoIP'],
+        ['prepaid', 'Prepaid'],
+        ['risky', 'Risky'],
+        ['recent_abuse', 'Recent abuse'],
+        ['spammer', 'Spammer'],
+        ['do_not_call', 'Do not call'],
+        ['leaked', 'Leaked'],
+      ];
+
+      function fraudClass(score) {
+        if (score === null || score === undefined) return '';
+        if (score >= 85) return 'is-bad';
+        if (score >= 60) return 'is-warn';
+        return 'is-good';
+      }
+
+      function renderError(message) {
+        panel.hidden = false;
+        panel.innerHTML = `<div class="lookup-error">${message}</div>`;
+      }
+
+      function renderResult(r) {
+        const flags = FLAGS
+          .filter(([key]) => r[key])
+          .map(([, label]) => `<span class="lookup-flag is-warn">${label}</span>`)
+          .join('');
+
+        panel.hidden = false;
+        panel.innerHTML = `
+          <div class="lookup-result-head">
+            <span class="lookup-number">${r.formatted || r.number}</span>
+            <span class="lookup-score ${fraudClass(r.fraud_score)}">
+              ${r.fraud_score !== null && r.fraud_score !== undefined ? r.fraud_score + '<small>/100</small>' : 'n/a'}
+            </span>
+          </div>
+          <div class="lookup-grid">
+            <div><span>Valid</span><strong>${r.valid ? 'Yes' : 'No'}</strong></div>
+            <div><span>Active</span><strong>${r.active ? 'Yes' : 'No'}</strong></div>
+            <div><span>Carrier</span><strong>${r.carrier || '—'}</strong></div>
+            <div><span>Line type</span><strong>${r.line_type || '—'}</strong></div>
+            <div><span>Location</span><strong>${[r.city, r.country].filter(Boolean).join(', ') || '—'}</strong></div>
+            <div><span>Timezone</span><strong>${r.timezone || '—'}</strong></div>
+          </div>
+          ${flags ? `<div class="lookup-flags">${flags}</div>` : ''}
+        `;
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const number = input.value.trim();
+        if (!number) return;
+
+        button.disabled = true;
+        button.textContent = '…';
+        panel.hidden = false;
+        panel.innerHTML = '<div class="lookup-loading">Looking up…</div>';
+
+        try {
+          const response = await fetch('/ctm/phone-lookup?number=' + encodeURIComponent(number));
+          const payload = await response.json().catch(() => ({}));
+          if (payload.ok && payload.result) {
+            renderResult(payload.result);
+          } else {
+            renderError(payload.error || 'Lookup failed.');
+          }
+        } catch (err) {
+          renderError('Unable to reach the lookup service.');
+        } finally {
+          button.disabled = false;
+          button.textContent = 'Look up';
+        }
+      });
+    })();
+
+    async function loadWorkspaceWeather() {
+      const container = document.getElementById('workspace-weather');
+      if (!container) return;
+      try {
+        const response = await fetch('/ctm/local-weather');
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        const data = await response.json();
+        const sourceLabel = data.source === 'fallback' ? 'Fallback city' : 'IP-based';
+        container.classList.remove('weather-hero-loading');
+        container.innerHTML = `
+          <div class="weather-hero-topline">
+            <span class="weather-hero-kicker">${data.is_day ? 'Day shift weather' : 'Night shift weather'}</span>
+            <span class="weather-hero-source">${sourceLabel}</span>
+          </div>
+          <div class="weather-hero-main">
+            <strong class="weather-hero-temp">${data.temperature}&deg;</strong>
+            <div class="weather-hero-copy">
+              <div class="weather-hero-condition">${data.condition}</div>
+              <div class="weather-hero-location">${data.location}</div>
+            </div>
+          </div>
+          <div class="weather-hero-meta">
+            <span class="weather-meta-pill">H ${data.high}&deg;</span>
+            <span class="weather-meta-pill">L ${data.low}&deg;</span>
+            <span class="weather-meta-pill">Wind ${data.wind_speed} mph</span>
+          </div>`;
+      } catch (error) {
+        container.classList.remove('weather-hero-loading');
+        container.innerHTML = `
+          <div class="weather-hero-topline">
+            <span class="weather-hero-kicker">Weather</span>
+            <span class="weather-hero-source">Unavailable</span>
+          </div>
+          <div class="weather-hero-main">
+            <strong class="weather-hero-temp">--</strong>
+            <div class="weather-hero-copy">
+              <div class="weather-hero-condition">Unable to load local weather</div>
+              <div class="weather-hero-location">Check the optional weather city in demo setup</div>
+            </div>
+          </div>`;
+      }
+    }
+    loadWorkspaceWeather();
+    setInterval(loadWorkspaceWeather, 15 * 60_000);
+
+    document.querySelectorAll('.tab[data-src]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeTabEmbed = tab.dataset.embed || null;
+        loadData(tab.dataset.src);
+      });
+    });
+
+    function hydrateDataPanel() {
+      const root = document.querySelector('#data-content [data-panel-root]');
+      if (!root) return;
+
+      const searchInput = root.querySelector('[data-search-input]');
+      const rows = Array.from(root.querySelectorAll('[data-search-row]'));
+      const emptyState = root.querySelector('[data-filter-empty]');
+      const visibleCount = root.querySelector('[data-visible-count]');
+      const filterButtons = Array.from(root.querySelectorAll('[data-filter]'));
+      const sortButtons = Array.from(root.querySelectorAll('[data-sort]'));
+      const toggleButtons = Array.from(root.querySelectorAll('[data-toggle]'));
+      const focusCards = Array.from(root.querySelectorAll('[data-focus-card]'));
+      const refreshButton = root.querySelector('[data-refresh-panel]');
+      let activeFilter = 'all';
+      let activeSort = 'newest';
+      let newOnly = false;
+      let activeSignalFilter = [];
+
+      const tabKey = rows[0]?.dataset.tabKey || activeTabSrc || 'panel';
+      const seenStorageKey = `ctm-softphone-seen:${tabKey}`;
+      const seenIds = new Set(JSON.parse(localStorage.getItem(seenStorageKey) || '[]'));
+      const initialSeenIsEmpty = seenIds.size === 0;
+      const currentIds = [];
+
+      rows.forEach(row => {
+        const recordId = row.dataset.recordId;
+        if (!recordId) return;
+        currentIds.push(recordId);
+        const isNew = !initialSeenIsEmpty && !seenIds.has(recordId);
+        row.dataset.isNew = isNew ? 'true' : 'false';
+        row.classList.toggle('row-is-new', isNew);
+        row.querySelectorAll('.new-indicator').forEach(el => { el.hidden = !isNew; });
+      });
+
+      if (currentIds.length) {
+        localStorage.setItem(seenStorageKey, JSON.stringify(currentIds.slice(0, 200)));
+      }
+
+      function sortRows() {
+        const tbody = root.querySelector('tbody') || root.querySelector('[data-sort-container]') || root.querySelector('.form-card-list');
+        if (!tbody) return;
+        rows.sort((a, b) => {
+          const tsA = Number(a.dataset.sortTs || 0);
+          const tsB = Number(b.dataset.sortTs || 0);
+          const priorityA = Number(a.dataset.callbackPriority || 0);
+          const priorityB = Number(b.dataset.callbackPriority || 0);
+          const newA = a.dataset.isNew === 'true' ? 1 : 0;
+          const newB = b.dataset.isNew === 'true' ? 1 : 0;
+
+          if (activeSort === 'oldest') return tsA - tsB;
+          if (activeSort === 'callback') {
+            return (priorityB - priorityA) || (newB - newA) || (tsB - tsA);
+          }
+          return tsB - tsA;
+        });
+        rows.forEach(row => tbody.appendChild(row));
+      }
+
+      function applyFilters() {
+        const query = (searchInput?.value || '').trim().toLowerCase();
+        let visibleRows = 0;
+
+        rows.forEach(row => {
+          const haystack = (row.dataset.search || '').toLowerCase();
+          const filters = (row.dataset.filters || '').split(/\s+/).filter(Boolean);
+          const signals = (row.dataset.signals || '').split(/\s+/).filter(Boolean);
+          const matchesQuery = !query || haystack.includes(query);
+          const matchesFilter = activeFilter === 'all' || filters.includes(activeFilter);
+          const matchesNew = !newOnly || row.dataset.isNew === 'true';
+          const matchesSignal = !activeSignalFilter.length || activeSignalFilter.every(signal => signals.includes(signal));
+          const visible = matchesQuery && matchesFilter && matchesNew && matchesSignal;
+          row.hidden = !visible;
+          if (visible) visibleRows += 1;
+        });
+
+        if (visibleCount) visibleCount.textContent = String(visibleRows);
+        if (emptyState) emptyState.hidden = visibleRows !== 0;
+      }
+
+      searchInput?.addEventListener('input', applyFilters);
+      refreshButton?.addEventListener('click', () => {
+        if (activeTabSrc) loadData(activeTabSrc);
+      });
+
+      filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          activeSignalFilter = [];
+          focusCards.forEach(card => card.classList.remove('active'));
+          activeFilter = button.dataset.filter || 'all';
+          filterButtons.forEach(item => item.classList.toggle('active', item === button));
+          applyFilters();
+        });
+      });
+
+      sortButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          activeSignalFilter = [];
+          focusCards.forEach(card => card.classList.remove('active'));
+          activeSort = button.dataset.sort || 'newest';
+          sortButtons.forEach(item => item.classList.toggle('active', item === button));
+          sortRows();
+          applyFilters();
+        });
+      });
+
+      toggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          if (button.dataset.toggle === 'new-only') {
+            newOnly = !newOnly;
+            button.classList.toggle('active', newOnly);
+            applyFilters();
+          }
+        });
+      });
+
+      focusCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const alreadyActive = card.classList.contains('active');
+          focusCards.forEach(item => item.classList.remove('active'));
+
+          if (alreadyActive) {
+            activeSignalFilter = [];
+            activeFilter = 'all';
+            activeSort = 'newest';
+          } else {
+            card.classList.add('active');
+            activeFilter = card.dataset.focusFilter || 'all';
+            activeSort = card.dataset.focusSort || 'newest';
+            activeSignalFilter = (card.dataset.focusSignals || '').split(/\s+/).filter(Boolean);
+          }
+
+          filterButtons.forEach(item => item.classList.toggle('active', (item.dataset.filter || 'all') === activeFilter));
+          sortButtons.forEach(item => item.classList.toggle('active', (item.dataset.sort || 'newest') === activeSort));
+          sortRows();
+          applyFilters();
+        });
+      });
+
+      root.addEventListener('click', event => {
+        const row = event.target.closest('[data-search-row]');
+        if (!row || row.dataset.isNew !== 'true') return;
+        row.dataset.isNew = 'false';
+        row.classList.remove('row-is-new');
+        row.querySelectorAll('.new-indicator').forEach(el => { el.hidden = true; });
+        applyFilters();
+      });
+
+      sortRows();
+      applyFilters();
+    }
+
+    document.addEventListener('keydown', event => {
+      const target = event.target;
+      const tag = target?.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable;
+
+      if (event.key === '/' && !isTyping) {
+        event.preventDefault();
+        document.querySelector('#data-content [data-search-input]')?.focus();
+        return;
+      }
+      if (event.key === 'Escape') {
+        const input = document.querySelector('#data-content [data-search-input]');
+        if (input && input.value) {
+          input.value = '';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        return;
+      }
+      if (isTyping) return;
+
+      if (event.key === '1') {
+        document.querySelector('.tab[data-src="/ctm/calls"]')?.click();
+      } else if (event.key === '2') {
+        document.querySelector('.tab[data-src="/ctm/messages"]')?.click();
+      } else if (event.key.toLowerCase() === 'r') {
+        refreshLog();
+      }
+    });
+
+    // ── Chat ──────────────────────────────────────────────────────
+    function toggleChat() {
+      const el = document.getElementById('ctm-chat');
+      if (!el) return;
+      const t = el.shadowRoot?.querySelector('#chat-toggle');
+      if (t) t.click();
+    }
+  </script>
+</body>
+</html>

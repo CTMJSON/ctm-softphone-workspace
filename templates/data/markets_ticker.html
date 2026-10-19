@@ -1,0 +1,41 @@
+{# ── Ticker strip: Markets (Yahoo Finance) ─────────────────────── #}
+<div class="sports-ticker sports-ticker-strip" data-markets-ticker>
+  <div class="sports-ticker-head">
+    <span class="ticker-source-toggle">
+      <button type="button" class="ticker-source" data-source="sports">&#9917; Sports</button>
+      <button type="button" class="ticker-source is-active" data-source="markets">&#128200; Markets</button>
+    </span>
+  </div>
+
+  <div class="sports-ticker-track-wrap">
+    <div class="sports-ticker-track" data-sports-track>
+      {% for q in quotes %}
+      <a class="market-quote market-quote-{{ q.direction }}" href="https://finance.yahoo.com/quote/{{ q.symbol | urlencode }}" target="_blank" rel="noopener noreferrer">
+        <span class="market-quote-name">{{ q.label }}</span>
+        <span class="market-quote-price">{{ "{:,.2f}".format(q.price) }}</span>
+        {% if q.change_pct is not none %}
+        <span class="market-quote-change">
+          {{ "▲" if q.direction == "up" else "▼" }}
+          {{ "{:+,.2f}".format(q.change_pct) }}%
+        </span>
+        {% endif %}
+      </a>
+      {% endfor %}
+      {% for q in quotes %}
+      <a class="market-quote market-quote-{{ q.direction }} market-quote-dup" href="https://finance.yahoo.com/quote/{{ q.symbol | urlencode }}" target="_blank" rel="noopener noreferrer">
+        <span class="market-quote-name">{{ q.label }}</span>
+        <span class="market-quote-price">{{ "{:,.2f}".format(q.price) }}</span>
+        {% if q.change_pct is not none %}
+        <span class="market-quote-change">
+          {{ "▲" if q.direction == "up" else "▼" }}
+          {{ "{:+,.2f}".format(q.change_pct) }}%
+        </span>
+        {% endif %}
+      </a>
+      {% endfor %}
+      {% if not quotes %}
+      <div class="market-quote market-quote-empty">Market data is unavailable right now.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -1,0 +1,65 @@
+{# ── Ticker strip: Sports (ESPN) or Markets — toggle in the head ── #}
+<div class="sports-ticker sports-ticker-strip" data-sports-ticker>
+  <div class="sports-ticker-head">
+    <span class="ticker-source-toggle">
+      <button type="button" class="ticker-source is-active" data-source="sports">&#9917; Sports</button>
+      <button type="button" class="ticker-source" data-source="markets">&#128200; Markets</button>
+    </span>
+    <label class="ticker-league-select">
+      <span class="sr-only">Filter by league</span>
+      <select data-league-select>
+        <option value="all">All leagues</option>
+        {% for league in leagues %}
+        <option value="{{ league.key }}">{{ league.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <div class="sports-ticker-track-wrap">
+    <div class="sports-ticker-track" data-sports-track>
+      {% for game in sports %}
+      <div class="sports-game" data-league="{{ game.key }}">
+        <span class="sports-game-league">{{ game.league }}</span>
+        <span class="sports-game-line">
+          <span class="sports-team {% if game.state == 'post' and game.away_score|int > game.home_score|int %}is-winner{% endif %}">
+            <span class="sports-team-abbr">{{ game.away }}</span>
+            {% if game.state != 'pre' %}<span class="sports-team-score">{{ game.away_score }}</span>{% endif %}
+          </span>
+          <span class="sports-game-at">@</span>
+          <span class="sports-team {% if game.state == 'post' and game.home_score|int > game.away_score|int %}is-winner{% endif %}">
+            <span class="sports-team-abbr">{{ game.home }}</span>
+            {% if game.state != 'pre' %}<span class="sports-team-score">{{ game.home_score }}</span>{% endif %}
+          </span>
+        </span>
+        <span class="sports-game-status {% if game.state == 'in' %}is-live{% endif %}">
+          {% if game.state == 'in' %}<span class="sports-live-dot"></span>{% endif %}{{ game.status }}
+        </span>
+      </div>
+      {% endfor %}
+      {# Duplicate the set once for a seamless, longer continuous scroll. #}
+      {% for game in sports %}
+      <div class="sports-game sports-game-dup" data-league="{{ game.key }}">
+        <span class="sports-game-league">{{ game.league }}</span>
+        <span class="sports-game-line">
+          <span class="sports-team {% if game.state == 'post' and game.away_score|int > game.home_score|int %}is-winner{% endif %}">
+            <span class="sports-team-abbr">{{ game.away }}</span>
+            {% if game.state != 'pre' %}<span class="sports-team-score">{{ game.away_score }}</span>{% endif %}
+          </span>
+          <span class="sports-game-at">@</span>
+          <span class="sports-team {% if game.state == 'post' and game.home_score|int > game.away_score|int %}is-winner{% endif %}">
+            <span class="sports-team-abbr">{{ game.home }}</span>
+            {% if game.state != 'pre' %}<span class="sports-team-score">{{ game.home_score }}</span>{% endif %}
+          </span>
+        </span>
+        <span class="sports-game-status {% if game.state == 'in' %}is-live{% endif %}">
+          {% if game.state == 'in' %}<span class="sports-live-dot"></span>{% endif %}{{ game.status }}
+        </span>
+      </div>
+      {% endfor %}
+      {% if not sports %}
+      <div class="sports-game sports-game-empty">Scores are unavailable right now.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>

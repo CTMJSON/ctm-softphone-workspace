@@ -1,0 +1,16 @@
+# Secrets / local config
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# Runtime logs and state (never commit)
+*.log
+*.log.old
+watchdog.state.json
+reload.request

@@ -1,0 +1,10 @@
+tunnel: cb5a57be-5276-4b9d-9346-eebc2e52be1e
+credentials-file: C:\cloudflared\cb5a57be-5276-4b9d-9346-eebc2e52be1e.json
+metrics: 127.0.0.1:20249
+
+ingress:
+  - hostname: ctmphone.online
+    service: http://localhost:8090
+  - hostname: www.ctmphone.online
+    service: http://localhost:8090
+  - service: http_status:404

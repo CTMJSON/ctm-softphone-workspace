@@ -1,0 +1,40 @@
+<section class="ops-panel" data-ops-panel-root>
+  <div class="ops-panel-header">
+    <div>
+      <p class="ops-panel-title">Agent Availability</p>
+      <p class="ops-panel-subtitle">Updated {{ updated_at }}</p>
+    </div>
+    <button class="ops-refresh" type="button" onclick="window.refreshOpsPanel?.()">Refresh</button>
+  </div>
+
+  {% if error %}
+  <div class="ops-inline-error">Agent status unavailable: {{ error }}</div>
+  {% endif %}
+
+  <div class="ops-metric-row">
+    {% for label, value in metrics.items() %}
+    <div class="ops-metric-card">
+      <span class="ops-metric-label">{{ label }}</span>
+      <strong class="ops-metric-value">{{ value }}</strong>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="ops-agent-list">
+    {% for agent in agents %}
+    <div class="ops-agent-item">
+      <div class="ops-agent-avatar">{{ agent.initials }}</div>
+      <div class="ops-agent-copy">
+        <div class="ops-agent-topline">
+          <span class="ops-agent-name">{{ agent.name }}</span>
+          <span class="ops-agent-badge ops-agent-badge-{{ agent.availability_key }}">{{ agent.availability }}</span>
+        </div>
+        <div class="ops-agent-meta">
+          <span>{{ agent.duration_label }}</span>
+          <span>Queue {{ agent.queue_total }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>

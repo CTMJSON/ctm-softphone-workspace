@@ -1,0 +1,138 @@
+<section class="data-panel" data-panel-root>
+  <div class="data-toolbar">
+    <div>
+      <p class="data-title">Forms</p>
+      <p class="data-subtitle">Form submissions captured by CTM, with every field name and value.</p>
+    </div>
+    <div class="data-toolbar-actions">
+      <span class="data-updated">Updated {{ updated_at }}</span>
+      <button class="toolbar-button" type="button" data-refresh-panel>&#8635; Refresh</button>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="inline-message inline-message-error">
+      <strong>Form data unavailable.</strong>
+      <span>{{ error }}</span>
+    </div>
+  {% endif %}
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <span class="metric-label">Total Submissions</span>
+      <strong class="metric-value">{{ metrics.total }}</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Today</span>
+      <strong class="metric-value">{{ metrics.today }}</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">With Email</span>
+      <strong class="metric-value">{{ metrics.with_email }}</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">No Field Data</span>
+      <strong class="metric-value">{{ metrics.empty }}</strong>
+    </div>
+  </div>
+
+  <div class="focus-grid">
+    {% for card in focus_cards %}
+    <button
+      class="focus-card"
+      type="button"
+      data-focus-card
+      data-focus-filter="{{ card.filter }}"
+      data-focus-sort="{{ card.sort }}"
+      data-focus-signals="{{ card.signals }}">
+      <span class="focus-card-label">{{ card.label }}</span>
+      <strong class="focus-card-value">{{ card.count }}</strong>
+      <span class="focus-card-hint">{{ card.hint }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="panel-controls">
+    <label class="search-field">
+      <span class="search-icon">&#128269;</span>
+      <input type="search" placeholder="Search form, name, email, value..." data-search-input>
+    </label>
+    <div class="filter-group">
+      <button class="filter-chip active" type="button" data-filter="all">All</button>
+      <button class="filter-chip" type="button" data-filter="has-email">Has Email</button>
+      <button class="filter-chip" type="button" data-filter="no-email">Missing Email</button>
+    </div>
+  </div>
+
+  <div class="panel-secondary-controls">
+    <div class="sort-group">
+      <button class="sort-chip active" type="button" data-sort="newest">Newest</button>
+      <button class="sort-chip" type="button" data-sort="oldest">Oldest</button>
+    </div>
+  </div>
+
+  {% if not forms %}
+    <div class="empty-state-card">
+      <div class="empty-state-icon">&#128203;</div>
+      <p>No form submissions found.</p>
+    </div>
+  {% else %}
+  <div class="form-card-list">
+    <div class="table-meta"><span data-visible-count>{{ forms|length }}</span> visible</div>
+    {% for form in forms %}
+    <article
+      class="form-card"
+      data-search-row
+      data-search="{{ form.form_name }} {{ form.contact }} {{ form.number }} {% for f in form.fields %}{{ f.label }} {{ f.value }} {% endfor %}"
+      data-filters="{{ 'has-email' if 'no-email' not in form.signals else 'no-email' }}"
+      data-signals="{{ form.signals|join(' ') }}"
+      data-sort-ts="{{ form.sort or 0 }}"
+      data-tab-key="forms">
+      <header class="form-card-head">
+        <div class="form-card-heading">
+          <span class="form-name-badge">&#128203; {{ form.form_name }}</span>
+          <span class="form-time">{{ form.time }} <span class="form-date">{{ form.date }}</span></span>
+        </div>
+        <div class="form-card-contact">
+          <span class="contact-primary">{{ form.contact }}</span>
+          {% if form.number %}<span class="contact-secondary">{{ form.number }}</span>{% endif %}
+          {% if form.dial_number %}
+          <button
+            class="action-button"
+            type="button"
+            title="Load {{ form.dial_number }} into the embedded phone"
+            onclick='event.preventDefault(); window.populateEmbeddedPhone({{ form.dial_number|tojson }});'>&#9742; Call</button>
+          {% endif %}
+          <span class="form-field-count">{{ form.field_count }} field{{ '' if form.field_count == 1 else 's' }}</span>
+        </div>
+      </header>
+      <div class="form-field-grid">
+        {% for field in form.fields %}
+        <div class="form-field">
+          <span class="form-field-label">{{ field.label }}</span>
+          <span class="form-field-value">{{ field.value }}</span>
+        </div>
+        {% endfor %}
+        {% if not form.fields %}
+        <div class="form-field form-field-empty">
+          <span class="cell-muted">No user-entered field values on this submission.</span>
+        </div>
+        {% endif %}
+      </div>
+      {% if form.meta %}
+      <footer class="form-card-meta">
+        {% for meta in form.meta %}
+        <span class="form-meta-chip"><span>{{ meta.label }}</span> {{ meta.value }}</span>
+        {% endfor %}
+      </footer>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="empty-state-card" data-filter-empty hidden>
+    <div class="empty-state-icon">&#128269;</div>
+    <p>No form submissions match the current search or filter.</p>
+  </div>
+  {% endif %}
+</section>

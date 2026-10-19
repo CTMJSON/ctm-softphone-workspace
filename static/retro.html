@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retro</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b0f14; color: #e8eef6; font: 14px/1.4 system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; }
+    .bar { display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #16294f; }
+    .hint, .bar a { color: #9fb0c7; font-size: 12px; }
+    .bar a { margin-left: auto; }
+    #stage { flex: 1; min-height: 0; display: grid; place-items: center; }
+    canvas { width: min(100%, calc(100vh * 256 / 240)); height: auto; max-height: 100%; image-rendering: pixelated; background: #000; }
+    #status { position: absolute; color: #9fb0c7; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <label for="rom">NES ROM</label>
+    <input id="rom" type="file" accept=".nes,.zip,application/octet-stream">
+    <span class="hint">Arrows, Z, X, Enter, Shift</span>
+    <a href="https://vimm.net/" target="_blank" rel="noopener noreferrer">NES ROMs at Vimm's Lair</a>
+  </div>
+  <div id="stage">
+    <span id="status">Choose a .nes file</span>
+    <canvas id="screen" width="256" height="240" hidden></canvas>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/jsnes@1.2.1/dist/jsnes.min.js"></script>
+  <script>
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const image = ctx.createImageData(256, 240);
+    const buf = new Uint32Array(image.data.buffer);
+    const status = document.getElementById('status');
+    const keys = {
+      ArrowUp: jsnes.Controller.BUTTON_UP,
+      ArrowDown: jsnes.Controller.BUTTON_DOWN,
+      ArrowLeft: jsnes.Controller.BUTTON_LEFT,
+      ArrowRight: jsnes.Controller.BUTTON_RIGHT,
+      KeyZ: jsnes.Controller.BUTTON_B,
+      KeyX: jsnes.Controller.BUTTON_A,
+      Enter: jsnes.Controller.BUTTON_START,
+      ShiftLeft: jsnes.Controller.BUTTON_SELECT,
+      ShiftRight: jsnes.Controller.BUTTON_SELECT
+    };
+
+    let nes = null;
+    let audioCtx = null;
+    let scriptNode = null;
+    const samples = [];
+
+    function ensureAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      scriptNode = audioCtx.createScriptProcessor(2048, 0, 2);
+      scriptNode.onaudioprocess = (event) => {
+        const left = event.outputBuffer.getChannelData(0);
+        const right = event.outputBuffer.getChannelData(1);
+        for (let i = 0; i < left.length; i++) {
+          const sample = samples.shift() || [0, 0];
+          left[i] = sample[0];
+          right[i] = sample[1];
+        }
+      };
+      scriptNode.connect(audioCtx.destination);
+    }
+
+    function start(rom) {
+      if (nes) nes = null;
+      samples.length = 0;
+      nes = new jsnes.NES({
+        onFrame(frameBuffer) {
+          for (let i = 0; i < frameBuffer.length; i++) buf[i] = 0xff000000 | frameBuffer[i];
+          ctx.putImageData(image, 0, 0);
+        },
+        onAudioSample(left, right) {
+          if (samples.length < 8192) samples.push([left, right]);
+        }
+      });
+      nes.loadROM(rom);
+      status.hidden = true;
+      canvas.hidden = false;
+      ensureAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      function loop() {
+        if (!nes) return;
+        nes.frame();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('rom').addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      status.hidden = false;
+      status.textContent = 'Loading ' + file.name + '…';
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let rom = '';
+      for (let i = 0; i < bytes.length; i++) rom += String.fromCharCode(bytes[i]);
+      try {
+        start(rom);
+      } catch (error) {
+        status.hidden = false;
+        canvas.hidden = true;
+        status.textContent = 'Could not start ROM: ' + error.message;
+      }
+    });
+
+    window.addEventListener('keydown', (event) => {
+      const button = keys[event.code];
+      if (!nes || button == null) return;
+      event.preventDefault();
+      nes.buttonDown(1, button);
+    });
+    window.addEventListener('keyup', (event) => {
+      const button = keys[event.code];
+      if (!nes || button == null) return;
+      nes.buttonUp(1, button);
+    });
+  </script>
+</body>
+</html>

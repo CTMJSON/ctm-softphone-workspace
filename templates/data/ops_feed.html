@@ -1,0 +1,31 @@
+<section class="ops-feed-card news-feed-card" data-news-feed-root>
+  <div class="news-toolbar">
+    <div class="news-filter-bar">
+      {% for cat in categories %}
+      <button type="button" class="news-filter{% if cat.key == 'all' %} is-active{% endif %}" data-category="{{ cat.key }}">{{ cat.label }}</button>
+      {% endfor %}
+    </div>
+    <span class="ops-feed-updated">Last 96h</span>
+  </div>
+
+  <div class="ops-feed-list" data-news-list>
+    {% for item in feed_items %}
+    {% if item.link %}
+    <a class="ops-feed-item ops-feed-item-link" href="{{ item.link }}" target="_blank" rel="noopener noreferrer" data-category="{{ item.category or 'news' }}">
+    {% else %}
+    <div class="ops-feed-item" data-category="{{ item.category or 'news' }}">
+    {% endif %}
+      <span class="ops-feed-item-label">
+        <span class="news-source-badge news-source-{{ item.category or 'news' }}">{{ item.source or 'News' }}</span>
+        {{ item.label }}
+      </span>
+      <span class="ops-feed-item-detail">{{ item.detail }}</span>
+    {% if item.link %}
+    </a>
+    {% else %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+</section>

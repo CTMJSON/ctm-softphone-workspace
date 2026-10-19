@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CTM Workspace</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
+</head>
+<body class="login-page">
+  <div class="login-shell">
+    <section class="login-hero">
+      <div class="login-hero-brand">
+        <span class="logo-mark">&#9742;</span>
+        <span>CTM Workspace</span>
+      </div>
+      <div class="login-hero-orb login-hero-orb-a"></div>
+      <div class="login-hero-orb login-hero-orb-b"></div>
+      <p class="login-kicker">Almost there</p>
+      <h1>Finish connecting your CTM account.</h1>
+      <p class="login-hero-copy">
+        CTM authorized this app, but it did not return the full agent identity. Confirm the details below
+        to launch your workspace.
+      </p>
+
+      <div class="login-checklist">
+        <div class="login-check-item">1. Enter your CTM account ID (the number in the CTM URL).</div>
+        <div class="login-check-item">2. Use the agent's work email and name as they appear in CTM.</div>
+        <div class="login-check-item">3. These identify the agent in the embedded phone session.</div>
+      </div>
+    </section>
+
+    <section class="login-card">
+      <div class="login-logo">
+        <span class="logo-mark">&#9742;</span>
+        <h1>Confirm Identity</h1>
+      </div>
+      <p class="login-card-copy">
+        Connected to CTM via OAuth. Confirm the agent identity for the workspace.
+      </p>
+
+      {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" action="/oauth/complete" class="login-form">
+        <div class="login-section">
+          <div class="login-section-head">
+            <h2>Agent Identity</h2>
+            <p>Used for the embedded phone session and shown in the workspace header.</p>
+          </div>
+          <div class="field">
+            <label for="account_id">CTM Account ID</label>
+            <input type="text" id="account_id" name="account_id" value="{{ account_id }}" placeholder="11774" required autofocus>
+            <p class="field-help">The numeric account ID (the number in the CTM URL, e.g. app.calltrackingmetrics.com/<strong>accounts/11774</strong>/...).</p>
+          </div>
+          <div class="field">
+            <label for="email">Work Email</label>
+            <input type="email" id="email" name="email" value="{{ email }}" placeholder="you@example.com" required>
+            <p class="field-help">Should match a CTM softphone user on this account so calls and presence are attributed to them.</p>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="first_name">First Name</label>
+              <input type="text" id="first_name" name="first_name" value="{{ first_name }}" placeholder="Jane" required>
+              <p class="field-help">Should match the CTM user's name.</p>
+            </div>
+            <div class="field">
+              <label for="last_name">Last Name</label>
+              <input type="text" id="last_name" name="last_name" value="{{ last_name }}" placeholder="Smith" required>
+              <p class="field-help">Should match the CTM user's name.</p>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full login-submit">Open CTM Workspace</button>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    function extractAccountId(value) {
+      const text = (value || '').trim();
+      if (!text) return '';
+      const match = text.match(/accounts\/(\d+)/i) || text.match(/^(\d+)$/);
+      return match ? match[1] : text;
+    }
+    document.getElementById('account_id')?.addEventListener('blur', (event) => {
+      event.target.value = extractAccountId(event.target.value);
+    });
+    document.querySelector('.login-form')?.addEventListener('submit', () => {
+      const accountField = document.getElementById('account_id');
+      if (accountField) accountField.value = extractAccountId(accountField.value);
+    });
+  </script>
+</body>
+</html>

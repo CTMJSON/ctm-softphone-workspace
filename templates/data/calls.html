@@ -1,0 +1,155 @@
+<section class="data-panel" data-panel-root>
+  <div class="data-toolbar">
+    <div>
+      <p class="data-title">Call Log</p>
+      <p class="data-subtitle">Recent CTM call activity, optimized for fast triage and callbacks.</p>
+    </div>
+    <div class="data-toolbar-actions">
+      <span class="data-updated">Updated {{ updated_at }}</span>
+      <button class="toolbar-button" type="button" data-refresh-panel>&#8635; Refresh</button>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="inline-message inline-message-error">
+      <strong>Call data unavailable.</strong>
+      <span>{{ error }}</span>
+    </div>
+  {% endif %}
+
+  <div class="metric-grid">
+    {% for label, value in metrics.items() %}
+    <div class="metric-card">
+      <span class="metric-label">{{ label }}</span>
+      <strong class="metric-value">{{ value }}</strong>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="focus-grid">
+    {% for card in focus_cards %}
+    <button
+      class="focus-card"
+      type="button"
+      data-focus-card
+      data-focus-filter="{{ card.filter }}"
+      data-focus-sort="{{ card.sort }}"
+      data-focus-signals="{{ card.signals }}">
+      <span class="focus-card-label">{{ card.label }}</span>
+      <strong class="focus-card-value">{{ card.count }}</strong>
+      <span class="focus-card-hint">{{ card.hint }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="panel-controls">
+    <label class="search-field">
+      <span class="search-icon">&#128269;</span>
+      <input type="search" placeholder="Search caller, agent, source, summary..." data-search-input>
+    </label>
+    <div class="filter-group">
+      <button class="filter-chip active" type="button" data-filter="all">All</button>
+      <button class="filter-chip" type="button" data-filter="inbound">Inbound</button>
+      <button class="filter-chip" type="button" data-filter="missed">Missed</button>
+      <button class="filter-chip" type="button" data-filter="outbound">Outbound</button>
+    </div>
+  </div>
+
+  <div class="panel-secondary-controls">
+    <div class="sort-group">
+      <button class="sort-chip active" type="button" data-sort="newest">Newest</button>
+      <button class="sort-chip" type="button" data-sort="callback">Callback Queue</button>
+      <button class="sort-chip" type="button" data-sort="oldest">Oldest</button>
+    </div>
+    <div class="toggle-group">
+      <button class="toggle-chip" type="button" data-toggle="new-only">New only</button>
+    </div>
+  </div>
+
+  {% if not calls %}
+    <div class="empty-state-card">
+      <div class="empty-state-icon">&#128222;</div>
+      <p>No calls found.</p>
+    </div>
+  {% else %}
+  <div class="table-shell">
+    <div class="table-meta"><span data-visible-count>{{ calls|length }}</span> visible</div>
+    <table class="activity-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Caller</th>
+          <th>Summary</th>
+          <th>Source</th>
+          <th>Direction</th>
+          <th>Status</th>
+          <th>Duration</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for call in calls %}
+        <tr
+          data-search-row
+          data-record-id="call-{{ call.record_id }}"
+          data-search="{{ call.search_text }}"
+          data-filters="{{ call.direction_key }} {{ call.status_key }}"
+          data-signals="{{ call.signals|join(' ') }}"
+          data-sort-ts="{{ call.sort_ts }}"
+          data-callback-priority="{{ call.callback_priority }}"
+          data-tab-key="calls">
+          <td class="time-cell">
+            <div class="time-primary">{{ call.time_label }}</div>
+            <div class="time-secondary">{{ call.date_label }}</div>
+          </td>
+          <td>
+            <div class="contact-primary">{{ call.caller_name }} <span class="new-indicator" hidden>New</span></div>
+            {% if call.caller_number %}<div class="contact-secondary">{{ call.caller_number }}</div>{% endif %}
+            {% if call.agent_name %}<div class="agent-pill">&#128100; {{ call.agent_name }}</div>{% endif %}
+          </td>
+          <td>
+            {% if call.summary %}
+              <div class="summary-copy">{{ call.summary }}</div>
+            {% else %}
+              <span class="cell-muted">No summary yet</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if call.source %}
+              <span class="source-pill" title="{{ call.source }}">{{ call.source }}</span>
+            {% else %}
+              <span class="cell-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="direction-badge direction-{{ call.direction_key }}">{{ call.direction_label }}</span>
+          </td>
+          <td>
+            <span class="status-badge-table status-{{ call.status_key }}">{{ call.status_label }}</span>
+          </td>
+          <td class="duration-cell">{{ call.duration_label }}</td>
+          <td>
+            {% if call.dial_number %}
+            <a
+              class="action-button"
+              href="#"
+              title="Load {{ call.dial_number }} into the embedded phone"
+              onclick='event.preventDefault(); window.populateEmbeddedPhone({{ call.dial_number|tojson }});'>
+              &#9742; Call
+            </a>
+            {% else %}
+            <span class="cell-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="empty-state-card" data-filter-empty hidden>
+    <div class="empty-state-icon">&#128269;</div>
+    <p>No calls match the current search or filter.</p>
+  </div>
+  {% endif %}
+</section>

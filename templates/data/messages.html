@@ -1,0 +1,144 @@
+<section class="data-panel" data-panel-root>
+  <div class="data-toolbar">
+    <div>
+      <p class="data-title">Text Log</p>
+      <p class="data-subtitle">Recent SMS activity with quick search and callback workflow.</p>
+    </div>
+    <div class="data-toolbar-actions">
+      <span class="data-updated">Updated {{ updated_at }}</span>
+      <button class="toolbar-button" type="button" data-refresh-panel>&#8635; Refresh</button>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="inline-message inline-message-error">
+      <strong>Text data unavailable.</strong>
+      <span>{{ error }}</span>
+    </div>
+  {% endif %}
+
+  <div class="metric-grid">
+    {% for label, value in metrics.items() %}
+    <div class="metric-card">
+      <span class="metric-label">{{ label }}</span>
+      <strong class="metric-value">{{ value }}</strong>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="focus-grid">
+    {% for card in focus_cards %}
+    <button
+      class="focus-card"
+      type="button"
+      data-focus-card
+      data-focus-filter="{{ card.filter }}"
+      data-focus-sort="{{ card.sort }}"
+      data-focus-signals="{{ card.signals }}">
+      <span class="focus-card-label">{{ card.label }}</span>
+      <strong class="focus-card-value">{{ card.count }}</strong>
+      <span class="focus-card-hint">{{ card.hint }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="panel-controls">
+    <label class="search-field">
+      <span class="search-icon">&#128269;</span>
+      <input type="search" placeholder="Search number, contact, message..." data-search-input>
+    </label>
+    <div class="filter-group">
+      <button class="filter-chip active" type="button" data-filter="all">All</button>
+      <button class="filter-chip" type="button" data-filter="inbound">Inbound</button>
+      <button class="filter-chip" type="button" data-filter="outbound">Outbound</button>
+    </div>
+  </div>
+
+  <div class="panel-secondary-controls">
+    <div class="sort-group">
+      <button class="sort-chip active" type="button" data-sort="newest">Newest</button>
+      <button class="sort-chip" type="button" data-sort="callback">Reply Queue</button>
+      <button class="sort-chip" type="button" data-sort="oldest">Oldest</button>
+    </div>
+    <div class="toggle-group">
+      <button class="toggle-chip" type="button" data-toggle="new-only">New only</button>
+    </div>
+  </div>
+
+  {% if not messages %}
+    <div class="empty-state-card">
+      <div class="empty-state-icon">&#128172;</div>
+      <p>No messages found.</p>
+    </div>
+  {% else %}
+  <div class="table-shell">
+    <div class="table-meta"><span data-visible-count>{{ messages|length }}</span> visible</div>
+    <table class="activity-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Direction</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Message</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for message in messages %}
+        <tr
+          data-search-row
+          data-record-id="msg-{{ message.record_id }}"
+          data-search="{{ message.search_text }}"
+          data-filters="{{ message.direction_key }}"
+          data-signals="{{ message.signals|join(' ') }}"
+          data-sort-ts="{{ message.sort_ts }}"
+          data-callback-priority="{{ message.callback_priority }}"
+          data-tab-key="messages">
+          <td class="time-cell">
+            <div class="time-primary">{{ message.time_label }}</div>
+            <div class="time-secondary">{{ message.date_label }}</div>
+          </td>
+          <td>
+            <span class="direction-badge direction-{{ message.direction_key }}">{{ message.direction_label }}</span>
+          </td>
+          <td>
+            {% if message.contact_name %}<div class="contact-primary">{{ message.contact_name }} <span class="new-indicator" hidden>New</span></div>{% endif %}
+            {% if not message.contact_name %}<div class="contact-primary">Unknown contact <span class="new-indicator" hidden>New</span></div>{% endif %}
+            <div class="contact-secondary">{{ message.from_number }}</div>
+          </td>
+          <td class="contact-secondary">{{ message.to_number }}</td>
+          <td>
+            {% if message.body %}
+              <div class="summary-copy">{{ message.body }}</div>
+            {% else %}
+              <span class="cell-muted">No message body</span>
+            {% endif %}
+            {% if message.has_media %}<div class="message-status">Includes media</div>{% endif %}
+            {% if message.status %}<div class="message-status">{{ message.status }}</div>{% endif %}
+          </td>
+          <td>
+            {% if message.reply_number %}
+            <a
+              class="action-button action-button-secondary"
+              href="#"
+              title="Load {{ message.reply_number }} into the embedded phone"
+              onclick='event.preventDefault(); window.populateEmbeddedPhone({{ message.reply_number|tojson }});'>
+              &#9742; Call Back
+            </a>
+            {% else %}
+            <span class="cell-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="empty-state-card" data-filter-empty hidden>
+    <div class="empty-state-icon">&#128269;</div>
+    <p>No texts match the current search or filter.</p>
+  </div>
+  {% endif %}
+</section>
