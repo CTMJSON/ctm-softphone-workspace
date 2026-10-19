@@ -296,6 +296,47 @@ a:hover {
   font-weight: 700;
 }
 
+/* Stacked, centered call-to-action links at the bottom of the login card. */
+.login-cta {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.login-cta .login-cta-lead {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-cta a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--accent-2);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.login-cta a:hover {
+  border-color: var(--accent);
+  background: #ffffff;
+  color: var(--accent);
+}
+
 .login-check-item {
   color: rgba(255, 255, 255, .9);
   font-size: 15px;
